@@ -342,6 +342,35 @@
 
   /* ===== Cards ===== */
   .cards{display:flex;flex-direction:column;gap:14px;}
+.join-section{margin-top:28px;}
+.join-section:first-child{margin-top:0;}
+.join-section-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:12px 16px;margin-bottom:12px;
+  border:1px solid var(--line);border-radius:12px;
+  background:var(--panel);
+}
+.join-section-head h3{
+  margin:0;font-family:'Fraunces',serif;font-size:20px;font-weight:500;
+}
+.join-section-head .join-count{
+  font-family:'IBM Plex Mono',monospace;font-size:11px;
+  color:var(--ink-soft);white-space:nowrap;
+}
+.join-section.joined .join-section-head{
+  border-color:var(--green);background:var(--green-bg);
+}
+.join-section.joined .join-section-head h3{color:var(--green);}
+.join-section.not-joined .join-section-head{
+  border-color:var(--line);background:#EEECE4;
+}
+.join-section.not-joined .join-section-head h3{color:var(--ink-soft);}
+.join-section .cards{gap:14px;}
+.join-empty{
+  text-align:center;padding:22px 16px;color:var(--ink-soft);
+  font-size:13px;border:1px dashed var(--line);border-radius:12px;
+  background:var(--panel);
+}
   .card{
     display:flex;
     background:var(--panel);
@@ -515,6 +544,38 @@
   }
   .visit-link:hover{background:var(--ink);color:var(--panel);}
 
+  .card-actions{
+    display:flex;
+    gap:8px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+  .card-action{
+    font-family:'Inter',sans-serif;
+    font-size:11.5px;
+    font-weight:600;
+    padding:7px 12px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:var(--panel);
+    color:var(--ink);
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .card-action.edit:hover{
+    background:var(--ink);
+    color:var(--panel);
+    border-color:var(--ink);
+  }
+  .card-action.delete{
+    color:var(--coral);
+    border-color:var(--coral);
+  }
+  .card-action.delete:hover{
+    background:var(--coral);
+    color:#fff;
+  }
+
   .empty-state{
     text-align:center;
     padding:60px 20px;
@@ -599,7 +660,7 @@
   <div class="modal-overlay" id="modalOverlay">
     <div class="modal">
       <div class="modal-head">
-        <h3>Add a competition</h3>
+        <h3 id="modalTitle">Add a competition</h3>
         <button class="modal-close" id="closeAddModal" type="button" aria-label="Close">×</button>
       </div>
       <form id="addForm">
@@ -673,17 +734,21 @@
           </label>
           <label>Did we join?
             <select name="joined">
-              <option value="Not Joined">Not Joined</option>
-              <option value="Considering">Considering</option>
-              <option value="Registered / In Progress">Registered / In Progress</option>
-              <option value="Joined">Joined</option>
-              <option value="Declined">Declined</option>
+              <optgroup label="Did we join?">
+                <option value="Joined">Joined</option>
+                <option value="Registered / In Progress">Registered / In Progress</option>
+              </optgroup>
+              <optgroup label="Didn’t join">
+                <option value="Not Joined">Not Joined</option>
+                <option value="Considering">Considering</option>
+                <option value="Declined">Declined</option>
+              </optgroup>
             </select>
           </label>
         </div>
         <div class="modal-actions">
           <button type="button" class="action-btn secondary" id="cancelAddBtn">Cancel</button>
-          <button type="submit" class="action-btn primary">Add to directory</button>
+          <button type="submit" class="action-btn primary" id="saveCompetitionBtn">Add to directory</button>
         </div>
       </form>
     </div>
@@ -763,7 +828,7 @@ function refreshTopKpis(){
   ];
   document.getElementById('kpiStrip').innerHTML = kpis.map(k =>
     `<div class="kpi ${k.cls}"><div class="num">${k.num}</div><div class="lbl">${k.lbl}</div></div>`
-  ).join('') + `<div class="kpi accent-green"><div class="num" id="kpiJoined">0</div><div class="lbl">Joined so far</div></div>`;
+  ).join('') + `<div class="kpi accent-green"><div class="num" id="kpiJoined">0</div><div class="lbl">We joined</div></div>`;
 }
 refreshTopKpis();
 
@@ -954,11 +1019,18 @@ function cardHtml(c, idx){
         <p class="prize">Prize: <strong>${c.prize || '—'}</strong></p>
         <div style="display:flex;gap:10px;align-items:center;">
           <select class="join-select ${joinClass(c.joined)}" data-idx="${idx}" onchange="setJoined(${idx}, this.value)">
-            ${['Not Joined','Considering','Registered / In Progress','Joined','Declined'].map(opt=>
-              `<option value="${opt}" ${c.joined===opt?'selected':''}>${opt==='Not Joined'?'Did we join? — Not Joined':opt}</option>`
-            ).join('')}
+            ${[
+              {group:'We joined', options:['Joined','Registered / In Progress']},
+              {group:'Didn’t join', options:['Not Joined','Considering','Declined']}
+            ].map(g=>`<optgroup label="${g.group}">${g.options.map(opt=>
+              `<option value="${opt}" ${c.joined===opt?'selected':''}>${opt==='Not Joined'?'Didn’t join':opt}</option>`
+            ).join('')}</optgroup>`).join('')}
           </select>
           ${c.website ? `<a class="visit-link" href="${c.website}" target="_blank" rel="noopener">Visit official site →</a>` : `<span class="visit-link" style="opacity:.4;cursor:default;">No link yet</span>`}
+          <div class="card-actions">
+            <button type="button" class="card-action edit" onclick="editCompetition(${idx})">✏ Edit</button>
+            <button type="button" class="card-action delete" onclick="deleteCompetition(${idx})">🗑 Delete</button>
+          </div>
         </div>
       </div>
     </div>
@@ -991,7 +1063,28 @@ function render(){
   }
 
   document.getElementById('resultHint').textContent = `${items.length} of ${DATA.length} shown`;
-  document.getElementById('cardContainer').innerHTML = items.map(x=>cardHtml(x.c, x.i)).join('');
+
+  // Keep participation status visually separate:
+  // "Joined" is shown in its own section; every other status is kept
+  // in a separate "Didn't join / not yet" section.
+  const joinedItems = items.filter(x=>x.c.joined === 'Joined');
+  const notJoinedItems = items.filter(x=>x.c.joined !== 'Joined');
+
+  const sectionHtml = (title, cls, sectionItems, emptyText) => `
+    <section class="join-section ${cls}">
+      <div class="join-section-head">
+        <h3>${title}</h3>
+        <span class="join-count">${sectionItems.length} competition${sectionItems.length===1?'':'s'}</span>
+      </div>
+      <div class="cards">
+        ${sectionItems.length ? sectionItems.map(x=>cardHtml(x.c, x.i)).join('') : `<div class="join-empty">${emptyText}</div>`}
+      </div>
+    </section>`;
+
+  document.getElementById('cardContainer').innerHTML =
+    sectionHtml('✓ We Joined', 'joined', joinedItems, 'No competitions marked as Joined yet.') +
+    sectionHtml('○ Didn\'t Join / Not Yet', 'not-joined', notJoinedItems, 'No competitions in this group.');
+
   document.getElementById('emptyState').style.display = items.length===0 ? 'block' : 'none';
 
   // re-render chip active states
@@ -1014,18 +1107,95 @@ function render(){
   });
 }
 
-// ---------- Add-competition modal ----------
+// ---------- Add / Edit / Delete competition ----------
 const modalOverlay = document.getElementById('modalOverlay');
 const addForm = document.getElementById('addForm');
+const modalTitle = document.getElementById('modalTitle');
+const saveCompetitionBtn = document.getElementById('saveCompetitionBtn');
+let editingIndex = null;
 
 function openModal(){
   modalOverlay.classList.add('open');
 }
+
 function closeModal(){
   modalOverlay.classList.remove('open');
   addForm.reset();
+  editingIndex = null;
+  modalTitle.textContent = 'Add a competition';
+  saveCompetitionBtn.textContent = 'Add to directory';
 }
-document.getElementById('openAddModal').addEventListener('click', openModal);
+
+function setFormValue(name, value){
+  const field = addForm.elements[name];
+  if(field) field.value = value ?? '';
+}
+
+function openAddModal(){
+  editingIndex = null;
+  addForm.reset();
+  modalTitle.textContent = 'Add a competition';
+  saveCompetitionBtn.textContent = 'Add to directory';
+  openModal();
+}
+
+function editCompetition(idx){
+  const c = DATA[idx];
+  if(!c) return;
+
+  editingIndex = idx;
+  modalTitle.textContent = 'Edit competition';
+  saveCompetitionBtn.textContent = 'Save changes';
+
+  setFormValue('name', c.name);
+  setFormValue('organizer', c.organizer);
+  setFormValue('category', c.category || 'Academic');
+  setFormValue('field', c.field);
+  setFormValue('scope', c.scope || 'International');
+  setFormValue('quarter', c.quarter || 'Newly Launched');
+  setFormValue('description', c.description);
+  setFormValue('eligibility', c.eligibility);
+  setFormValue('teamSize', c.teamSize);
+  setFormValue('status', c.status);
+  setFormValue('location', c.location);
+  setFormValue('regOpens', c.regOpens);
+  setFormValue('regDeadline', c.regDeadline);
+  setFormValue('eventStart', c.eventStart);
+  setFormValue('eventEnd', c.eventEnd);
+  setFormValue('prize', c.prize);
+  setFormValue('website', c.website);
+  setFormValue('joined', c.joined || 'Not Joined');
+  setFormValue('dateNote', c.regOpensNote || c.regDeadlineNote || c.eventNote || '');
+
+  openModal();
+}
+
+function deleteCompetition(idx){
+  const c = DATA[idx];
+  if(!c) return;
+
+  const confirmed = window.confirm(
+    `Delete "${c.name}" from the directory?\n\nThis change is temporary until you click "Download updated file".`
+  );
+  if(!confirmed) return;
+
+  DATA.splice(idx, 1);
+
+  quarterOptions.length = 0;
+  quarterOptions.push({val:'all', label:'All quarters'});
+  Array.from(new Set(DATA.map(d=>d.quarter).filter(Boolean))).sort().forEach(q=>{
+    quarterOptions.push({val:q, label:shortQuarter(q)});
+  });
+
+  if(editingIndex === idx) closeModal();
+
+  refreshTopKpis();
+  refreshJoinedKpi();
+  renderTimeline();
+  render();
+}
+
+document.getElementById('openAddModal').addEventListener('click', openAddModal);
 document.getElementById('closeAddModal').addEventListener('click', closeModal);
 document.getElementById('cancelAddBtn').addEventListener('click', closeModal);
 modalOverlay.addEventListener('click', (e)=>{ if(e.target === modalOverlay) closeModal(); });
@@ -1036,7 +1206,7 @@ addForm.addEventListener('submit', (e)=>{
   const val = (k)=> (fd.get(k) || '').toString().trim();
 
   const dateNote = val('dateNote') || null;
-  const newRecord = {
+  const record = {
     name: val('name'),
     category: val('category') || 'Academic',
     field: val('field'),
@@ -1060,12 +1230,17 @@ addForm.addEventListener('submit', (e)=>{
     quarter: val('quarter'),
   };
 
-  if(!newRecord.name){ return; }
+  if(!record.name) return;
 
-  DATA.push(newRecord);
-  const newIdx = DATA.length - 1;
+  const wasEditing = editingIndex !== null;
+  const changedIndex = wasEditing ? editingIndex : DATA.length;
 
-  // refresh quarter filter options in case a new quarter value appeared
+  if(wasEditing){
+    DATA[editingIndex] = record;
+  }else{
+    DATA.push(record);
+  }
+
   quarterOptions.length = 0;
   quarterOptions.push({val:'all', label:'All quarters'});
   Array.from(new Set(DATA.map(d=>d.quarter).filter(Boolean))).sort().forEach(q=>{
@@ -1079,7 +1254,7 @@ addForm.addEventListener('submit', (e)=>{
   render();
 
   setTimeout(()=>{
-    const el = document.getElementById('card-'+newIdx);
+    const el = document.getElementById('card-'+changedIndex);
     if(el){
       if(el.scrollIntoView) el.scrollIntoView({behavior:'smooth', block:'center'});
       el.style.boxShadow = '0 0 0 3px var(--gold)';
